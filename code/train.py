@@ -121,6 +121,8 @@ def train(configs, snapshot_path):
 
             # TODO val batch must match size 1
             val_mask = configs.post_trans(val_outputs[0])
+
+            #TODO Joaquin check this in MONAI API add one hot needed
             configs.dice_metric(val_mask[1].cpu().unsqueeze(0), sampled_batch["label"].cpu().squeeze(0))
 
             medpy_dice += metric.binary.dc(val_mask[1].detach().cpu().numpy(),
