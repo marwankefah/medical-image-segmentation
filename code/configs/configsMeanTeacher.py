@@ -214,7 +214,10 @@ class Configs:
                 EnsureTyped(keys=["image", "label"])
             ])
 
-        self.post_trans = Compose([EnsureType(), Activations(softmax=True), AsDiscrete(argmax=True, to_onehot=self.num_classes)])
+        self.y_pred_trans = Compose([EnsureType(), Activations(softmax=True), AsDiscrete(argmax=True, to_onehot=self.num_classes)])
+
+        self.y_trans = AsDiscrete(threshold=0.1, to_onehot=self.num_classes)
+
         self.dice_metric = DiceMetric(include_background=False, reduction="mean", get_not_nans=False)
 
     # TODO add more scheduling techniques for other optimizers?

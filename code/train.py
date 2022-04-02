@@ -5,6 +5,8 @@ import random
 import shutil
 import sys
 import time
+
+from monai.data.utils import decollate_batch
 from tensorboardX import SummaryWriter
 import numpy as np
 import torch
@@ -100,12 +102,13 @@ def train(configs, snapshot_path):
                 plot_2d_or_3d_image(volume_batch, iter_num + 1, writer, index=0, tag="image")
                 plot_2d_or_3d_image(label_batch, iter_num + 1, writer, index=0, tag="label")
 
-                output_mask = configs.post_trans(outputs[0])
+                output_mask = configs.y_pred_trans(outputs[0])
 
                 plot_2d_or_3d_image(output_mask, iter_num + 1, writer, index=1, tag="output")
 
         configs.model.eval()
         medpy_dice = 0
+
         for i_batch, sampled_batch in enumerate(valloader):
             val_images, val_labels = sampled_batch["image"].to(configs.device), sampled_batch["label"].to(
                 configs.device)
@@ -119,19 +122,14 @@ def train(configs, snapshot_path):
             val_loss = 0.5 * (val_ce_loss + val_dice_loss)
             val_loss_list.append(val_loss.detach().cpu().numpy())
 
-            # TODO val batch must match size 1
-            val_mask = configs.post_trans(val_outputs[0])
+            y_onehot = [configs.y_trans(i) for i in decollate_batch(val_labels)]
+            y_pred_act = [configs.y_pred_trans(i) for i in decollate_batch(val_outputs)]
 
-            # TODO Joaquin check this in MONAI API add one hot needed both should be one hot
-            one_hot = AsDiscrete(threshold=0.1, to_onehot=configs.num_classes)
+            configs.dice_metric(y_pred_act,y_onehot)
 
-            #TODO just work for batch size=1 can work for more if output val_mask is not
-            configs.dice_metric(val_mask.cpu().unsqueeze(0),one_hot(sampled_batch["label"][0]).cpu().unsqueeze(0))
-            #
-            # configs.dice_metric(val_mask[1].cpu().unsqueeze(0), sampled_batch["label"].cpu().squeeze(0))
-
-            medpy_dice += metric.binary.dc(val_mask[1].detach().cpu().numpy(),
+            medpy_dice += metric.binary.dc(y_pred_act[0][1].detach().cpu().numpy(),
                                            val_labels.squeeze().detach().cpu().numpy() > 0.5)
+
 
         medpy_dice = medpy_dice / len(valloader)
 
@@ -151,7 +149,7 @@ def train(configs, snapshot_path):
 
         plot_2d_or_3d_image(val_images, epoch_num + 1, writer_val, index=0, tag="image")
         plot_2d_or_3d_image(val_labels, epoch_num + 1, writer_val, index=0, tag="label")
-        plot_2d_or_3d_image(val_mask, epoch_num + 1, writer_val, index=1, tag="output")
+        plot_2d_or_3d_image(y_pred_act[0], epoch_num + 1, writer_val, index=1, tag="output")
 
         logging.info(
             'iteration %d : val_loss : %f val_dice : %f' % (iter_num, val_loss_mean, val_dice_metric))
