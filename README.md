@@ -19,11 +19,5 @@ Original Image           |  Elastic Deformation
 :-------------------------:|:-------------------------:
 ![](https://github.com/marwankefah/medical-image-segmentation/blob/master/imgs_readme/randrot.png)  |  ![](https://github.com/marwankefah/medical-image-segmentation/blob/master/imgs_readme/randzoom.png)
 
-@inproceedings{bano2020vessel,
-title={Deep Placental Vessel Segmentation for Fetoscopic Mosaicking},
-author={Bano, Sophia and Vasconcelos, Francisco and Shepherd, Luke M. and Vander Poorten, Emmanue and Vercauteren, Tom and Ourselin, Sebastien and David, Anna L. and Deprest, Jan and Stoyanov, Danail},
-booktitle={International Conference on Medical Image Computing and Computer-Assisted Intervention},
-year={2020},
-organization={Springer}
-}
+Bano, S. et al. (2020). Deep Placental Vessel Segmentation for Fetoscopic Mosaicking. In: , et al. Medical Image Computing and Computer Assisted Intervention – MICCAI 2020. MICCAI 2020. Lecture Notes in Computer Science(), vol 12263. Springer, Cham. https://doi.org/10.1007/978-3-030-59716-0_73
 
