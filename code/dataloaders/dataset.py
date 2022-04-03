@@ -79,13 +79,16 @@ class BaseFetaDataSets(Dataset):
         img_path = os.path.join(self.configs.img_root_path, self.sample_list[idx][0][1:])
         labels_path = os.path.join(self.configs.img_root_path, self.sample_list[idx][1][1:])
 
+        # if the data is labeled
         if self.sample_list[idx][1] != 'none':
+
             if self.transform:
                 transformed = self.transform({"image": img_path, "label": labels_path})
             else:
                 print("no transforms for training labeled?")
                 raise
         else:
+            #unlabeled data input to the teacher
             if self.teacher_transform:
                 transformed = self.teacher_transform({"image": img_path})
                 #TODO modify when RGB is input

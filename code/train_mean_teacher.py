@@ -19,6 +19,8 @@ from configs.configs_mean_teacher import Configs
 from monai.visualize import plot_2d_or_3d_image
 from medpy import metric
 from utils import ramps
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 def get_current_consistency_weight(epoch):
     # Consistency ramp-up from https://arxiv.org/abs/1610.02242

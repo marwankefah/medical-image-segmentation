@@ -20,7 +20,6 @@ from monai.visualize import plot_2d_or_3d_image
 from medpy import metric
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-from monai.transforms import AsDiscrete
 
 
 def train(configs, snapshot_path):
