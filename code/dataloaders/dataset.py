@@ -12,12 +12,13 @@ from torch.utils.data import Dataset
 
 class BaseFetaDataSets(Dataset):
 
-    def __init__(self, configs=None, split='train', transform=None):
+    def __init__(self, configs=None, split='train', transform=None, teacher_transform=None):
         self._base_dir = configs.root_path
         self.sample_list = []
         self.split = split
-        self.configs = configs
         self.transform = transform
+        self.teacher_transform = teacher_transform
+        self.configs = configs
         self.labeled_idxs = []
         self.unlabeled_idxs = []
 
@@ -29,16 +30,18 @@ class BaseFetaDataSets(Dataset):
 
             # optimize by sending
         if self.split == 'train':
-            dfTrainSubset = df[(df['datamode'] == 'train_labelled')]
+            dfTrainSubset = df[(df['datamode'] == 'train_labelled') | (df['datamode'] == 'train_unlabelled')]
             dfTrainSubset = dfTrainSubset.reset_index()
-
             self.sample_list = list(
                 zip(dfTrainSubset['image'].values.tolist(), dfTrainSubset['manual'].values.tolist()))
+
             self.labeled_idxs = dfTrainSubset.index[dfTrainSubset['datamode'] == 'train_labelled'].tolist()
+            self.unlabeled_idxs = dfTrainSubset.index[dfTrainSubset['datamode'] == 'train_unlabelled'].tolist()
 
         elif self.split == 'val':
             dfTrainSubset = df[df['datamode'] == 'val_labelled']
             dfTrainSubset = dfTrainSubset.reset_index()
+
             self.sample_list = list(
                 zip(dfTrainSubset['image'].values.tolist(), dfTrainSubset['manual'].values.tolist()))
             self.labeled_idxs = dfTrainSubset.index[dfTrainSubset['datamode'] == 'val_labelled'].tolist()
@@ -49,6 +52,22 @@ class BaseFetaDataSets(Dataset):
             self.sample_list = list(
                 zip(dfTrainSubset['image'].values.tolist(), dfTrainSubset['manual'].values.tolist()))
             self.labeled_idxs = dfTrainSubset.index[dfTrainSubset['datamode'] == 'test_labelled'].tolist()
+        elif self.split == 'train_labelled':
+            dfTrainSubset = df[(df['datamode'] == 'train_labelled')]
+            dfTrainSubset = dfTrainSubset.reset_index()
+
+            self.sample_list = list(
+                zip(dfTrainSubset['image'].values.tolist(), dfTrainSubset['manual'].values.tolist()))
+            # TODO check the indicies is actually true
+            self.labeled_idxs = dfTrainSubset.index[dfTrainSubset['datamode'] == 'train_labelled'].tolist()
+        elif self.split == 'train_unlabelled':
+            dfTrainSubset = df[(df['datamode'] == 'train_unlabelled')]
+            dfTrainSubset = dfTrainSubset.reset_index()
+
+            self.sample_list = list(
+                zip(dfTrainSubset['image'].values.tolist(), dfTrainSubset['manual'].values.tolist()))
+            # TODO check the indicies is actually true
+            self.unlabeled_idxs = dfTrainSubset.index[dfTrainSubset['datamode'] == 'train_unlabelled'].tolist()
 
         print("total {} samples".format(len(self.sample_list)))
 
@@ -60,14 +79,24 @@ class BaseFetaDataSets(Dataset):
         img_path = os.path.join(self.configs.img_root_path, self.sample_list[idx][0][1:])
         labels_path = os.path.join(self.configs.img_root_path, self.sample_list[idx][1][1:])
 
-        if self.transform:
-            transformed = self.transform({"image": img_path, "label": labels_path})
+        if self.sample_list[idx][1] != 'none':
+            if self.transform:
+                transformed = self.transform({"image": img_path, "label": labels_path})
+            else:
+                print("no transforms for training labeled?")
+                raise
+        else:
+            if self.teacher_transform:
+                transformed = self.teacher_transform({"image": img_path})
+                #TODO modify when RGB is input
+                transformed['label'] = torch.zeros_like(transformed['image'])
+            else:
+                print("no transforms for training unlabeled?")
+                raise
 
-        sample= {'image': transformed['image'], 'label': transformed['label'], "idx": idx}
+        sample = {'image': transformed['image'], 'label': transformed['label'], "idx": idx}
 
         return sample
-
-
 
     def get_labels(self):
         return self.y_test

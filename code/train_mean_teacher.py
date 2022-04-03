@@ -13,31 +13,43 @@ import torch
 import torch.backends.cudnn as cudnn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from configs.configs import *
-from dataloaders.dataset import (BaseFetaDataSets, RandomGenerator, ResizeTransform, TwoStreamBatchSampler)
-from configs.configs import Configs
+from configs.configs_mean_teacher import *
+from dataloaders.dataset import (BaseFetaDataSets,TwoStreamBatchSampler)
+from configs.configs_mean_teacher import Configs
 from monai.visualize import plot_2d_or_3d_image
 from medpy import metric
-from PIL import ImageFile
-ImageFile.LOAD_TRUNCATED_IMAGES = True
-from monai.transforms import AsDiscrete
+from utils import ramps
 
+def get_current_consistency_weight(epoch):
+    # Consistency ramp-up from https://arxiv.org/abs/1610.02242
+    return configs.consistency * ramps.sigmoid_rampup(epoch, configs.consistency_rampup)
 
 def train(configs, snapshot_path):
     configs.train_writer = SummaryWriter(snapshot_path + '/log')
     configs.val_writer = SummaryWriter(snapshot_path + '/log_val')
 
     configs.model.to(configs.device)
-
-    db_train = BaseFetaDataSets(configs=configs, split='train_labelled', transform=configs.train_transform,teacher_transform=None)
+    configs.ema_model.to(configs.device)
+    db_train = BaseFetaDataSets(configs=configs, split='train', transform=configs.train_transform,teacher_transform=configs.teacher_transform)
     db_val = BaseFetaDataSets(configs=configs, split='val', transform=configs.val_transform)
 
-    trainloader = DataLoader(db_train, num_workers=configs.num_workers,
-                             batch_size=configs.batch_size, pin_memory=True, shuffle=True,
-                             drop_last=True)
+    labeled_idxs = db_train.labeled_idxs
+    unlabeled_idxs = db_train.unlabeled_idxs
+
+
+    batch_sampler = TwoStreamBatchSampler(
+        labeled_idxs, unlabeled_idxs, configs.batch_size, configs.batch_size-configs.labeled_bs)
+
+
+    trainloader = DataLoader(db_train, num_workers=configs.num_workers,batch_sampler=batch_sampler,
+                             pin_memory=True)
 
     valloader = DataLoader(db_val, batch_size=configs.val_batch_size, shuffle=False,
                            num_workers=configs.num_workers)
+
+
+
+
 
     configs.model.train()
 
@@ -71,16 +83,40 @@ def train(configs, snapshot_path):
             volume_batch, label_batch = sampled_batch['image'], sampled_batch['label']
             volume_batch, label_batch = volume_batch.to(configs.device), label_batch.to(configs.device)
 
+            unlabeled_volume_batch = volume_batch[configs.labeled_bs:]
+
+            noise = torch.clamp(torch.randn_like(
+                unlabeled_volume_batch) * 0.1, -0.2, 0.2)
+
+            ema_inputs = unlabeled_volume_batch + noise
+            with torch.no_grad():
+                ema_outputs, ema_classification = configs.ema_model(ema_inputs)
+                ema_output_soft = torch.softmax(ema_outputs, dim=1)
+
             # print(db_train.y_test[sampled_batch['idx'].squeeze().detach().cpu().numpy()])
 
+
             outputs, classification_head_output = configs.model(volume_batch)
+            outputs_soft = torch.softmax(outputs, dim=1)
 
             loss_dice = configs.criterion(outputs[:configs.labeled_bs],
                                           label_batch[:][:configs.labeled_bs].long())
 
             loss_ce = configs.criterion_1(outputs[:configs.labeled_bs],
                                           label_batch[:][:configs.labeled_bs].squeeze(1).long())
-            loss = 0.5 * (loss_ce + loss_dice)
+
+            if epoch_num < configs.mean_teacher_epoch:
+                consistency_loss = 0.0
+            else:
+                consistency_loss = torch.mean(
+                    (outputs_soft[configs.labeled_bs:] - ema_output_soft) ** 2)
+
+
+            supervised_loss = 0.5 * (loss_ce + loss_dice)
+
+            consistency_weight = get_current_consistency_weight(iter_num//150)
+
+            loss= supervised_loss + consistency_weight * consistency_loss
 
             configs.optimizer.zero_grad()
             loss.backward()
@@ -94,6 +130,11 @@ def train(configs, snapshot_path):
             lr_ = configs.optimizer.param_groups[0]['lr']
 
             writer.add_scalar('info/lr', lr_, iter_num)
+
+            writer.add_scalar('info/consistency_loss',
+                              consistency_loss, iter_num)
+            writer.add_scalar('info/consistency_weight',
+                              consistency_weight, iter_num)
 
             logging.info(
                 'iteration %d : loss : %f, loss_ce: %f, loss_dice: %f' %
@@ -179,7 +220,7 @@ def train(configs, snapshot_path):
 
 if __name__ == "__main__":
 
-    configs = Configs('./configs/TNBC.ini')
+    configs = Configs('./configs/mean_teacher.ini')
 
     if not configs.deterministic:
         cudnn.benchmark = True
