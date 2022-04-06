@@ -54,6 +54,9 @@ class Configs:
         self.root_path = config_file.get('path', 'root_path', fallback='../data/FETA/')
         self.linux_gpu_id = config_file.get('path', 'linux_gpu_id', fallback=0)
         self.linux = config_file.getboolean('path', 'linux', fallback=False)
+        self.model_path=config_file.get('path', 'model_path', fallback='')
+
+        self.is_train = config_file.getint('path', 'train', fallback=1)
 
         self.img_root_path = config_file.get('path', 'img_root_path', fallback='../data/FETA/')
 
@@ -114,12 +117,16 @@ class Configs:
 
         self.model = create_model()
 
+        if not self.is_train:
+            print(self.model_path)
+            self.model.load_state_dict(torch.load(self.model_path))
+
+
         use_cuda = torch.cuda.is_available()
         self.device = torch.device("cuda" if use_cuda else "cpu")
 
         # TODO abstract and add more optimizers
         if self.optim.lower() == 'sgd':
-
             self.optimizer = optim.SGD(self.model.parameters(), lr=self.base_lr,
                                        momentum=0.9, weight_decay=0.0001)
         elif self.optim.lower() == 'adam':
@@ -190,7 +197,6 @@ class Configs:
                 RandGaussianSmoothd(keys=["image"], prob=0.1, sigma_x=(0.25, 1.5), sigma_y=(0.25, 1.5)),
                 RandGaussianNoised(keys=["image"], mean=0, std=0.1, prob=0.5),
 
-                # TODO check this
                 OneOf(transforms=[affine, deform], weights=[0.8, 0.2]),
                 # NormalizeIntensity(subtrahend=None, divisor=None, channel_wise=False),
 
@@ -220,7 +226,6 @@ class Configs:
 
         self.dice_metric = DiceMetric(include_background=False, reduction="mean", get_not_nans=False)
 
-    # TODO add more scheduling techniques for other optimizers?
     def update_lr(self, iter_num):
         if self.optim.lower() == 'sgd':
             lr_ = self.base_lr * (1.0 - iter_num / self.max_iterations) ** 0.9

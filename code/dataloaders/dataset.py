@@ -58,7 +58,6 @@ class BaseFetaDataSets(Dataset):
 
             self.sample_list = list(
                 zip(dfTrainSubset['image'].values.tolist(), dfTrainSubset['manual'].values.tolist()))
-            # TODO check the indicies is actually true
             self.labeled_idxs = dfTrainSubset.index[dfTrainSubset['datamode'] == 'train_labelled'].tolist()
         elif self.split == 'train_unlabelled':
             dfTrainSubset = df[(df['datamode'] == 'train_unlabelled')]
@@ -66,7 +65,6 @@ class BaseFetaDataSets(Dataset):
 
             self.sample_list = list(
                 zip(dfTrainSubset['image'].values.tolist(), dfTrainSubset['manual'].values.tolist()))
-            # TODO check the indicies is actually true
             self.unlabeled_idxs = dfTrainSubset.index[dfTrainSubset['datamode'] == 'train_unlabelled'].tolist()
 
         print("total {} samples".format(len(self.sample_list)))
@@ -91,6 +89,7 @@ class BaseFetaDataSets(Dataset):
             #unlabeled data input to the teacher
             if self.teacher_transform:
                 transformed = self.teacher_transform({"image": img_path})
+
                 #TODO modify when RGB is input
                 transformed['label'] = torch.zeros_like(transformed['image'])
             else:

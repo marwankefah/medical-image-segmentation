@@ -50,6 +50,9 @@ class Configs:
         self.config_filename = filename
         config_file = configparser.ConfigParser(allow_no_value=True)
         config_file.read(self.config_filename)
+        self.model_path=config_file.get('path', 'model_path', fallback='')
+
+        self.is_train = config_file.getint('path', 'train', fallback=1)
 
         self.root_path = config_file.get('path', 'root_path', fallback='../data/FETA/')
         self.linux_gpu_id = config_file.get('path', 'linux_gpu_id', fallback=0)
@@ -119,6 +122,11 @@ class Configs:
 
         self.model = create_model()
         self.ema_model = create_model(ema=True)
+
+        if not self.is_train:
+            print(self.model_path)
+            self.model.load_state_dict(torch.load(self.model_path))
+
 
         use_cuda = torch.cuda.is_available()
         self.device = torch.device("cuda" if use_cuda else "cpu")
@@ -196,7 +204,7 @@ class Configs:
                 RandGaussianSmoothd(keys=["image"], prob=0.1, sigma_x=(0.25, 1.5), sigma_y=(0.25, 1.5)),
                 RandGaussianNoised(keys=["image"], mean=0, std=0.1, prob=0.5),
 
-                # TODO check this
+
                 OneOf(transforms=[affine, deform], weights=[0.8, 0.2]),
                 # NormalizeIntensity(subtrahend=None, divisor=None, channel_wise=False),
 

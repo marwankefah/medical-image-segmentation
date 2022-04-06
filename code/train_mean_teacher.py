@@ -14,17 +14,20 @@ import torch.backends.cudnn as cudnn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from configs.configs_mean_teacher import *
-from dataloaders.dataset import (BaseFetaDataSets,TwoStreamBatchSampler)
+from dataloaders.dataset import (BaseFetaDataSets, TwoStreamBatchSampler)
 from configs.configs_mean_teacher import Configs
 from monai.visualize import plot_2d_or_3d_image
 from medpy import metric
 from utils import ramps
 from PIL import ImageFile
+
 ImageFile.LOAD_TRUNCATED_IMAGES = True
+
 
 def get_current_consistency_weight(epoch):
     # Consistency ramp-up from https://arxiv.org/abs/1610.02242
     return configs.consistency * ramps.sigmoid_rampup(epoch, configs.consistency_rampup)
+
 
 def train(configs, snapshot_path):
     configs.train_writer = SummaryWriter(snapshot_path + '/log')
@@ -32,26 +35,21 @@ def train(configs, snapshot_path):
 
     configs.model.to(configs.device)
     configs.ema_model.to(configs.device)
-    db_train = BaseFetaDataSets(configs=configs, split='train', transform=configs.train_transform,teacher_transform=configs.teacher_transform)
+    db_train = BaseFetaDataSets(configs=configs, split='train', transform=configs.train_transform,
+                                teacher_transform=configs.teacher_transform)
     db_val = BaseFetaDataSets(configs=configs, split='val', transform=configs.val_transform)
 
     labeled_idxs = db_train.labeled_idxs
     unlabeled_idxs = db_train.unlabeled_idxs
 
-
     batch_sampler = TwoStreamBatchSampler(
-        labeled_idxs, unlabeled_idxs, configs.batch_size, configs.batch_size-configs.labeled_bs)
+        labeled_idxs, unlabeled_idxs, configs.batch_size, configs.batch_size - configs.labeled_bs)
 
-
-    trainloader = DataLoader(db_train, num_workers=configs.num_workers,batch_sampler=batch_sampler,
+    trainloader = DataLoader(db_train, num_workers=configs.num_workers, batch_sampler=batch_sampler,
                              pin_memory=True)
 
     valloader = DataLoader(db_val, batch_size=configs.val_batch_size, shuffle=False,
                            num_workers=configs.num_workers)
-
-
-
-
 
     configs.model.train()
 
@@ -97,7 +95,6 @@ def train(configs, snapshot_path):
 
             # print(db_train.y_test[sampled_batch['idx'].squeeze().detach().cpu().numpy()])
 
-
             outputs, classification_head_output = configs.model(volume_batch)
             outputs_soft = torch.softmax(outputs, dim=1)
 
@@ -113,12 +110,11 @@ def train(configs, snapshot_path):
                 consistency_loss = torch.mean(
                     (outputs_soft[configs.labeled_bs:] - ema_output_soft) ** 2)
 
-
             supervised_loss = 0.5 * (loss_ce + loss_dice)
 
-            consistency_weight = get_current_consistency_weight(iter_num//150)
+            consistency_weight = get_current_consistency_weight(iter_num // 150)
 
-            loss= supervised_loss + consistency_weight * consistency_loss
+            loss = supervised_loss + consistency_weight * consistency_loss
 
             configs.optimizer.zero_grad()
             loss.backward()
@@ -237,7 +233,6 @@ if __name__ == "__main__":
     torch.cuda.manual_seed(configs.seed)
 
     log_time = int(time.time())
-
 
     snapshot_path = "../model/{}_labeled/{}/{}".format(
         configs.exp, configs.model_name, log_time)
