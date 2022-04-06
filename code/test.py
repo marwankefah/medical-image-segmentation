@@ -9,19 +9,17 @@ import torch.backends.cudnn as cudnn
 import random
 
 configs = Configs('./configs/mean_teacher.ini')
-
-db_test = BaseFetaDataSets(configs=configs, split='test', transform=configs.val_transform, teacher_transform=None)
+db_test = BaseFetaDataSets(configs=configs, split='test', transform=configs.val_transform)
 
 valloader = DataLoader(db_test, batch_size=1, shuffle=False)
 
-medpy_dice = 0
+medpy_dice_sum = 0
 
 val_loss_list = []
 
 configs.model.to(configs.device)
 
 configs.model.eval()
-
 if not configs.deterministic:
     cudnn.benchmark = True
     cudnn.deterministic = False
@@ -33,6 +31,8 @@ random.seed(configs.seed)
 np.random.seed(configs.seed)
 torch.manual_seed(configs.seed)
 torch.cuda.manual_seed(configs.seed)
+
+medpy_dice_list=[]
 with torch.no_grad():
     for i_batch, sampled_batch in enumerate(valloader):
         val_images, val_labels = sampled_batch["image"].to(configs.device), sampled_batch["label"].to(
@@ -51,18 +51,20 @@ with torch.no_grad():
         y_pred_act = [configs.y_pred_trans(i) for i in decollate_batch(val_outputs)]
 
         configs.dice_metric(y_pred_act, y_onehot)
+        medpy_dice = metric.binary.dc(y_pred_act[0][1].detach().cpu().numpy(),
+                                      val_labels.squeeze().detach().cpu().numpy() > 0.5)
 
-        medpy_dice += metric.binary.dc(y_pred_act[0][1].detach().cpu().numpy(),
-                                       val_labels.squeeze().detach().cpu().numpy() > 0.5)
+        medpy_dice_list.append(medpy_dice)
+        medpy_dice_sum += medpy_dice
 
-medpy_dice = medpy_dice / len(valloader)
+medpy_dice_sum = medpy_dice_sum / len(valloader)
 
 val_dice_metric = configs.dice_metric.aggregate().item()
 
-print(medpy_dice, val_dice_metric)
+print(np.mean(medpy_dice_list),np.std(medpy_dice_list),medpy_dice_sum, val_dice_metric)
 
 configs.dice_metric.reset()
 
 val_loss_mean = np.mean(val_loss_list, axis=0)
 
-print('dataset loss ', val_loss_mean, ' dice score_medpy: ', medpy_dice, ' dice score monai', val_dice_metric)
+print('dataset loss ', val_loss_mean, ' dice score_medpy: ', medpy_dice_sum, ' dice score monai', val_dice_metric)
