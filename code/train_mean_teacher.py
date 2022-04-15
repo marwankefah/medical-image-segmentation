@@ -147,11 +147,19 @@ def train(configs, snapshot_path):
                 (iter_num, loss.item(), loss_ce.item(), loss_dice.item()))
 
             if iter_num % 20 == 0:
+                plot_2d_or_3d_image(unlabeled_volume_batch, iter_num + 1, writer, index=0, tag="unlabeled_image")
+                plot_2d_or_3d_image(ema_inputs, iter_num + 1, writer_val, index=0, tag="unlabeled_image")
+
+                output_unlabelled_model_mask = configs.y_pred_trans(outputs[configs.labeled_bs])
+                plot_2d_or_3d_image(output_unlabelled_model_mask, iter_num + 1, writer, index=1, tag="unlabeled_output")
+
+                output_unlabelled_ema_mask = configs.y_pred_trans(ema_outputs[0])
+                plot_2d_or_3d_image(output_unlabelled_ema_mask, iter_num + 1, writer_val, index=1, tag="unlabeled_output")
+
+
                 plot_2d_or_3d_image(volume_batch, iter_num + 1, writer, index=0, tag="image")
                 plot_2d_or_3d_image(label_batch, iter_num + 1, writer, index=0, tag="label")
-
                 output_mask = configs.y_pred_trans(outputs[0])
-
                 plot_2d_or_3d_image(output_mask, iter_num + 1, writer, index=1, tag="output")
 
         configs.model.eval()
