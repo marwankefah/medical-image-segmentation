@@ -83,6 +83,8 @@ class Configs:
         self.max_iterations = config_file.getint('network', 'max_iterations', fallback=30000)
         self.batch_size = config_file.getint('network', 'batch_size', fallback=16)
         self.labeled_bs = config_file.getint('network', 'labeled_bs', fallback=8)
+        self.labelled_ratio = config_file.getfloat('network', 'labelled_ratio', fallback=1)
+
         self.deterministic = config_file.getint('network', 'deterministic', fallback=1)
 
         self.base_lr = config_file.getfloat('network', 'base_lr', fallback=0.01)

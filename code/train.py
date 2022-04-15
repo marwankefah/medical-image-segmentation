@@ -146,9 +146,10 @@ def train(configs, snapshot_path):
         writer_val.add_scalar('info/model_total_loss', val_loss_mean, epoch_num)
         writer_val.add_scalar('info/val_dice', val_dice_metric, epoch_num)
 
-        plot_2d_or_3d_image(val_images, epoch_num + 1, writer_val, index=0, tag="image")
-        plot_2d_or_3d_image(val_labels, epoch_num + 1, writer_val, index=0, tag="label")
-        plot_2d_or_3d_image(y_pred_act[0], epoch_num + 1, writer_val, index=1, tag="output")
+        random_val_visualize_int = random.randint(0, len(val_images) - 1)
+        plot_2d_or_3d_image(val_images, iter_num + 1, writer_val, index=random_val_visualize_int, tag="image")
+        plot_2d_or_3d_image(val_labels, iter_num + 1, writer_val, index=random_val_visualize_int, tag="label")
+        plot_2d_or_3d_image(y_pred_act[random_val_visualize_int], iter_num + 1, writer_val, index=1, tag="output")
 
         logging.info(
             'iteration %d : val_loss : %f val_dice : %f' % (iter_num, val_loss_mean, val_dice_metric))

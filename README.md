@@ -3,7 +3,7 @@ segmentation models pytorch with MONAI transforms in  medical imaging
 
 FETA dataset with 5% labeled data | Dice Score  
 ---------------------------------|------------------------
-Mean Teacher ResNet-34          |  **0.5662 ± 0.21**
+Mean Teacher ResNet-34          |  **0.5725 ± 0.21**
 Supervised Approach ResNet-34|  0.5382 ± 0.20
 
 

@@ -30,13 +30,22 @@ class BaseFetaDataSets(Dataset):
 
             # optimize by sending
         if self.split == 'train':
-            dfTrainSubset = df[(df['datamode'] == 'train_labelled') | (df['datamode'] == 'train_unlabelled')]
-            dfTrainSubset = dfTrainSubset.reset_index()
-            self.sample_list = list(
-                zip(dfTrainSubset['image'].values.tolist(), dfTrainSubset['manual'].values.tolist()))
+            dfTrainSubset_labeled = df[(df['datamode'] == 'train_labelled')]
+            n = int(configs.labelled_ratio * len(dfTrainSubset_labeled))
+            dfTrainSubset_labeled = dfTrainSubset_labeled.sample(n=n, random_state=1, replace=False)
+            print('Training with {} labeled examples '.format(len(dfTrainSubset_labeled)))
 
-            self.labeled_idxs = dfTrainSubset.index[dfTrainSubset['datamode'] == 'train_labelled'].tolist()
-            self.unlabeled_idxs = dfTrainSubset.index[dfTrainSubset['datamode'] == 'train_unlabelled'].tolist()
+            dfTrainSubset_unlabeled = df[(df['datamode'] == 'train_unlabelled')]
+            u = int(configs.unlabelled_ratio * len(dfTrainSubset_unlabeled))
+            dfTrainSubset_unlabeled = dfTrainSubset_unlabeled.sample(n=u, random_state=1, replace=False)
+
+            self.full_dataset = pd.concat([dfTrainSubset_labeled, dfTrainSubset_unlabeled], ignore_index=True,
+                                          sort=False)
+            self.sample_list = list(
+                zip(self.full_dataset['image'].values.tolist(), self.full_dataset['manual'].values.tolist()))
+
+            self.labeled_idxs = self.full_dataset.index[self.full_dataset['datamode'] == 'train_labelled'].tolist()
+            self.unlabeled_idxs = self.full_dataset.index[self.full_dataset['datamode'] == 'train_unlabelled'].tolist()
 
         elif self.split == 'val':
             dfTrainSubset = df[df['datamode'] == 'val_labelled']
@@ -53,12 +62,17 @@ class BaseFetaDataSets(Dataset):
                 zip(dfTrainSubset['image'].values.tolist(), dfTrainSubset['manual'].values.tolist()))
             self.labeled_idxs = dfTrainSubset.index[dfTrainSubset['datamode'] == 'test_labelled'].tolist()
         elif self.split == 'train_labelled':
-            dfTrainSubset = df[(df['datamode'] == 'train_labelled')]
-            dfTrainSubset = dfTrainSubset.reset_index()
+            dfTrainSubset_labeled = df[(df['datamode'] == 'train_labelled')]
+            n = int(configs.labelled_ratio * len(dfTrainSubset_labeled))
+            dfTrainSubset_labeled = dfTrainSubset_labeled.sample(n=n, random_state=1, replace=False)
+            print('Training with {} labeled examples '.format(len(dfTrainSubset_labeled)))
+
+            dfTrainSubset_labeled = dfTrainSubset_labeled.reset_index()
 
             self.sample_list = list(
-                zip(dfTrainSubset['image'].values.tolist(), dfTrainSubset['manual'].values.tolist()))
-            self.labeled_idxs = dfTrainSubset.index[dfTrainSubset['datamode'] == 'train_labelled'].tolist()
+                zip(dfTrainSubset_labeled['image'].values.tolist(), dfTrainSubset_labeled['manual'].values.tolist()))
+            self.labeled_idxs = dfTrainSubset_labeled.index[
+                dfTrainSubset_labeled['datamode'] == 'train_labelled'].tolist()
         elif self.split == 'train_unlabelled':
             dfTrainSubset = df[(df['datamode'] == 'train_unlabelled')]
             dfTrainSubset = dfTrainSubset.reset_index()
@@ -86,11 +100,11 @@ class BaseFetaDataSets(Dataset):
                 print("no transforms for training labeled?")
                 raise
         else:
-            #unlabeled data input to the teacher
+            # unlabeled data input to the teacher
             if self.teacher_transform:
                 transformed = self.teacher_transform({"image": img_path})
 
-                #TODO modify when RGB is input
+                # TODO modify when RGB is input
                 transformed['label'] = torch.zeros_like(transformed['image'])
             else:
                 print("no transforms for training unlabeled?")

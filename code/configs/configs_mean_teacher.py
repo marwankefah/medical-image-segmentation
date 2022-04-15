@@ -83,6 +83,10 @@ class Configs:
         self.max_iterations = config_file.getint('network', 'max_iterations', fallback=30000)
         self.batch_size = config_file.getint('network', 'batch_size', fallback=16)
         self.labeled_bs = config_file.getint('network', 'labeled_bs', fallback=8)
+        self.labelled_ratio = config_file.getfloat('network', 'labelled_ratio', fallback=1)
+        self.unlabelled_ratio = config_file.getfloat('network', 'unlabelled_ratio', fallback=1)
+
+
         self.deterministic = config_file.getint('network', 'deterministic', fallback=1)
         self.base_lr = config_file.getfloat('network', 'base_lr', fallback=0.01)
 
@@ -143,7 +147,7 @@ class Configs:
             raise Exception("Optimizer is not supported")
 
         # TODO include background?
-        self.criterion = monai.losses.DiceLoss(include_background=True, softmax=True,to_onehot_y=True)
+        self.criterion = monai.losses.DiceLoss(include_background=False, softmax=True,to_onehot_y=True)
         self.criterion_1 = CrossEntropyLoss()
         # writers
         self.train_writer = None
@@ -211,7 +215,6 @@ class Configs:
                 EnsureTyped(keys=["image", "label"], ),
             ]
         )
-
         self.teacher_transform = Compose(
             [
                 LoadImaged(keys=["image"], reader=image_loader),

@@ -5,6 +5,7 @@ import random
 import shutil
 import sys
 import time
+import dill as pickle
 
 from monai.data.utils import decollate_batch
 from tensorboardX import SummaryWriter
@@ -92,7 +93,7 @@ def train(configs, snapshot_path):
             unlabeled_volume_batch = volume_batch[configs.labeled_bs:]
 
             noise = torch.clamp(torch.randn_like(
-                unlabeled_volume_batch) * 0.1, -0.2, 0.2)
+                unlabeled_volume_batch) * 0.02, -0.2, 0.2)
 
             ema_inputs = unlabeled_volume_batch + noise
             with torch.no_grad():
@@ -118,7 +119,7 @@ def train(configs, snapshot_path):
 
             supervised_loss = 0.5 * (loss_ce + loss_dice)
 
-            consistency_weight = get_current_consistency_weight(iter_num // 150)
+            consistency_weight = get_current_consistency_weight(epoch_num)
 
             loss = supervised_loss + consistency_weight * consistency_loss
 
@@ -202,9 +203,10 @@ def train(configs, snapshot_path):
         writer_val.add_scalar('info/model_total_loss', val_loss_mean, epoch_num)
         writer_val.add_scalar('info/val_dice', val_dice_metric, epoch_num)
 
-        plot_2d_or_3d_image(val_images, epoch_num + 1, writer_val, index=0, tag="image")
-        plot_2d_or_3d_image(val_labels, epoch_num + 1, writer_val, index=0, tag="label")
-        plot_2d_or_3d_image(y_pred_act[0], epoch_num + 1, writer_val, index=1, tag="output")
+        random_val_visualize_int = random.randint(0, len(val_images) - 1)
+        plot_2d_or_3d_image(val_images, iter_num + 1, writer_val, index=random_val_visualize_int, tag="image")
+        plot_2d_or_3d_image(val_labels, iter_num + 1, writer_val, index=random_val_visualize_int, tag="label")
+        plot_2d_or_3d_image(y_pred_act[random_val_visualize_int], iter_num + 1, writer_val, index=1, tag="output")
 
         logging.info(
             'iteration %d : val_loss : %f val_dice : %f' % (iter_num, val_loss_mean, val_dice_metric))
