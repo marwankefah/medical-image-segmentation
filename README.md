@@ -1,10 +1,10 @@
 # medical-image-segmentation
 segmentation models pytorch with MONAI transforms in  medical imaging
 
-FETA dataset with 20% labeled data | Dice Score
+FETA dataset with 5% labeled data | Dice Score  
 ---------------------------------|------------------------
-Mean Teacher ResNet-34          |  **0.668 ± 0.21**
-Supervised Approach ResNet-34|  0.634 ± 0.20
+Mean Teacher ResNet-34          |  **0.5662 ± 0.21**
+Supervised Approach ResNet-34|  0.5382 ± 0.20
 
 
 Segementation models pytorch with Medical Imaging Data Augmentation (MONAI) 
