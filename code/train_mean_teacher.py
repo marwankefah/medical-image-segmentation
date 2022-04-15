@@ -23,6 +23,12 @@ from PIL import ImageFile
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
+def update_ema_variables(model, ema_model, alpha, global_step):
+    # Use the true average until the exponential average is more correct
+    alpha = min(1 - 1 / (global_step + 1), alpha)
+    for ema_param, param in zip(ema_model.parameters(), model.parameters()):
+        ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
+
 
 def get_current_consistency_weight(epoch):
     # Consistency ramp-up from https://arxiv.org/abs/1610.02242
@@ -119,6 +125,8 @@ def train(configs, snapshot_path):
             configs.optimizer.zero_grad()
             loss.backward()
             configs.optimizer.step()
+
+            update_ema_variables(configs.model, configs.ema_model, configs.ema_decay, iter_num)
 
             train_loss_list.append(loss.detach().cpu().numpy())
 
